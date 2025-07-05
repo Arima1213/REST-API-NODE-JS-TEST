@@ -50,14 +50,49 @@ module.exports = class Transaction {
   }
 
   static async getAll() {
+    // Ambil semua transaksi beserta detail dan produk terkait
     const [rows] = await db.query(`
-      SELECT t.id, t.type, t.customer_id, c.name AS customer_name, t.supplier_id, s.name AS supplier_name, t.created_at
-      FROM transactions t
-      LEFT JOIN customers c ON t.customer_id = c.id
-      LEFT JOIN suppliers s ON t.supplier_id = s.id
-      ORDER BY t.created_at DESC
+        SELECT 
+            t.id AS transaction_id, t.type, t.customer_id, c.name AS customer_name, 
+            t.supplier_id, s.name AS supplier_name, t.created_at,
+            td.id AS detail_id, td.product_id, td.quantity, td.unit_price, td.discount,
+            p.name AS product_name, p.category
+        FROM transactions t
+        LEFT JOIN customers c ON t.customer_id = c.id
+        LEFT JOIN suppliers s ON t.supplier_id = s.id
+        LEFT JOIN transaction_details td ON t.id = td.transaction_id
+        LEFT JOIN products p ON td.product_id = p.id
+        ORDER BY t.created_at DESC, td.id ASC
     `);
-    return rows;
+
+    // Gabungkan detail ke dalam array items per transaksi
+    const transactions = {};
+    for (const row of rows) {
+      if (!transactions[row.transaction_id]) {
+        transactions[row.transaction_id] = {
+          id: row.transaction_id,
+          type: row.type,
+          customer_id: row.customer_id,
+          customer_name: row.customer_name,
+          supplier_id: row.supplier_id,
+          supplier_name: row.supplier_name,
+          created_at: row.created_at,
+          items: [],
+        };
+      }
+      if (row.detail_id) {
+        transactions[row.transaction_id].items.push({
+          detail_id: row.detail_id,
+          product_id: row.product_id,
+          product_name: row.product_name,
+          category: row.category,
+          quantity: row.quantity,
+          unit_price: row.unit_price,
+          discount: row.discount,
+        });
+      }
+    }
+    return Object.values(transactions);
   }
 
   static async getById(transactionId) {
@@ -88,5 +123,62 @@ module.exports = class Transaction {
       ...header[0],
       items: details,
     };
+  }
+
+  static async getSalesPerMonth(startDate, endDate) {
+    const [rows] = await db.query(
+      `
+      SELECT 
+        DATE_FORMAT(t.created_at, '%Y-%m') AS month,
+        SUM(td.unit_price * td.quantity - td.discount) AS total_sales
+      FROM transactions t
+      JOIN transaction_details td ON t.id = td.transaction_id
+      WHERE t.type = 'sale'
+        AND DATE(t.created_at) BETWEEN ? AND ?
+      GROUP BY month
+      ORDER BY month ASC
+      `,
+      [startDate, endDate]
+    );
+    return rows;
+  }
+
+  static async getSalesPerCategory(startDate, endDate) {
+    const [rows] = await db.query(
+      `
+      SELECT 
+        p.category,
+        SUM(td.unit_price * td.quantity - td.discount) AS total_sales
+      FROM transactions t
+      JOIN transaction_details td ON t.id = td.transaction_id
+      JOIN products p ON td.product_id = p.id
+      WHERE t.type = 'sale'
+        AND DATE(t.created_at) BETWEEN ? AND ?
+      GROUP BY p.category
+      ORDER BY total_sales DESC
+      `,
+      [startDate, endDate]
+    );
+    return rows;
+  }
+
+  static async getTopProducts(startDate, endDate, limit = 10) {
+    const [rows] = await db.query(
+      `
+      SELECT 
+        p.name AS product_name,
+        SUM(td.unit_price * td.quantity - td.discount) AS total_value
+      FROM transactions t
+      JOIN transaction_details td ON t.id = td.transaction_id
+      JOIN products p ON td.product_id = p.id
+      WHERE t.type = 'sale'
+        AND DATE(t.created_at) BETWEEN ? AND ?
+      GROUP BY p.name
+      ORDER BY total_value DESC
+      LIMIT ?
+      `,
+      [startDate, endDate, limit]
+    );
+    return rows;
   }
 };
