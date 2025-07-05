@@ -224,7 +224,6 @@ static async getAllTransactions() {
   return rows;
 }
 
-
 static async getTransactionById(transactionId) {
   const [header] = await db.query(`
     SELECT 
