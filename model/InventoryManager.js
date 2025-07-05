@@ -210,6 +210,49 @@ class InventoryManager {
         }
     }
 
+static async getAllTransactions() {
+  const [rows] = await db.query(`
+    SELECT 
+      t.id, t.type, t.customer_id, c.name AS customer_name,
+      t.supplier_id, s.name AS supplier_name,
+      t.created_at
+    FROM transactions t
+    LEFT JOIN customers c ON t.customer_id = c.id
+    LEFT JOIN suppliers s ON t.supplier_id = s.id
+    ORDER BY t.created_at DESC
+  `);
+  return rows;
+}
+
+
+static async getTransactionById(transactionId) {
+  const [header] = await db.query(`
+    SELECT 
+      t.id, t.type, t.created_at, 
+      t.customer_id, c.name AS customer_name,
+      t.supplier_id, s.name AS supplier_name
+    FROM transactions t
+    LEFT JOIN customers c ON t.customer_id = c.id
+    LEFT JOIN suppliers s ON t.supplier_id = s.id
+    WHERE t.id = ?
+  `, [transactionId]);
+
+  if (header.length === 0) throw new Error('Transaction not found');
+
+  const [details] = await db.query(`
+    SELECT 
+      td.product_id, p.name AS product_name, td.quantity, td.unit_price, td.discount
+    FROM transaction_details td
+    JOIN products p ON td.product_id = p.id
+    WHERE td.transaction_id = ?
+  `, [transactionId]);
+
+  return {
+    ...header[0],
+    items: details
+  };
+}
+
     // -------------------------
     // REPORT
     // -------------------------
