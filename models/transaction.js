@@ -165,18 +165,19 @@ module.exports = class Transaction {
   static async getTopProducts(startDate, endDate, limit = 10) {
     const [rows] = await db.query(
       `
-      SELECT 
-        p.name AS product_name,
-        SUM(td.unit_price * td.quantity - td.discount) AS total_value
-      FROM transactions t
-      JOIN transaction_details td ON t.id = td.transaction_id
-      JOIN products p ON td.product_id = p.id
-      WHERE t.type = 'sale'
-        AND DATE(t.created_at) BETWEEN ? AND ?
-      GROUP BY p.name
-      ORDER BY total_value DESC
-      LIMIT ?
-      `,
+    SELECT 
+      p.id AS product_id,
+      p.name AS product_name,
+      SUM(td.unit_price * td.quantity - td.discount) AS total_value
+    FROM transactions t
+    JOIN transaction_details td ON t.id = td.transaction_id
+    JOIN products p ON td.product_id = p.id
+    WHERE t.type = 'sale'
+      AND DATE(t.created_at) BETWEEN ? AND ?
+    GROUP BY p.id, p.name
+    ORDER BY total_value DESC
+    LIMIT ?
+    `,
       [startDate, endDate, limit]
     );
     return rows;
