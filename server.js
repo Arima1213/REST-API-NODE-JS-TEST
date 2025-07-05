@@ -1,6 +1,6 @@
 const http = require('http');
 const url = require('url');
-const InventoryManager = require('./model/InventoryManager');
+const InventoryManager = require('./models/InventoryManager');
 
 // Helper: parse request body
 function parseBody(req) {
