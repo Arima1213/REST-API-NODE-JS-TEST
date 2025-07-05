@@ -125,19 +125,19 @@ module.exports = class Transaction {
     };
   }
 
-  static async getSalesPerMonth(startDate, endDate) {
+  static async getSalesPerDay(startDate, endDate) {
     const [rows] = await db.query(
       `
-      SELECT 
-        DATE_FORMAT(t.created_at, '%Y-%m') AS month,
-        SUM(td.unit_price * td.quantity - td.discount) AS total_sales
-      FROM transactions t
-      JOIN transaction_details td ON t.id = td.transaction_id
-      WHERE t.type = 'sale'
-        AND DATE(t.created_at) BETWEEN ? AND ?
-      GROUP BY month
-      ORDER BY month ASC
-      `,
+    SELECT 
+      DATE(t.created_at) AS date,
+      SUM(td.unit_price * td.quantity - td.discount) AS total_sales
+    FROM transactions t
+    JOIN transaction_details td ON t.id = td.transaction_id
+    WHERE t.type = 'sale'
+      AND DATE(t.created_at) BETWEEN ? AND ?
+    GROUP BY DATE(t.created_at)
+    ORDER BY DATE(t.created_at)
+    `,
       [startDate, endDate]
     );
     return rows;
