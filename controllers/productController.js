@@ -39,3 +39,15 @@ exports.deleteProduct = async (req, res) => {
     res.writeHead(500).end(JSON.stringify({ error: err.message }));
   }
 };
+
+exports.getProductById = async (req, res) => {
+  try {
+    const product = await Product.getById(req.params.id);
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+    res.writeHead(200).end(JSON.stringify(product));
+  } catch (err) {
+    res.writeHead(err.statusCode || 500).end(JSON.stringify({ error: err.message }));
+  }
+};
